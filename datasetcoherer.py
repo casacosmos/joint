@@ -1,16 +1,14 @@
 import os
-import textract
 import tiktoken
 import argparse
 import json
 from tqdm import tqdm
 import re
 import cohere 
-from fitzcli import gettext, open_file, get_list, TEXT_PRESERVE_LIGATURES, TEXT_PRESERVE_WHITESPACE, TEXT_INHIBIT_SPACES
-
+from fitzcli import *
 
 # Constants
-TOKEN_CHUNK_SIZE = 225
+TOKEN_CHUNK_SIZE = 300
 EMBEDDING_ENCODING = 'cl100k_base'
 
 co = cohere.Client('MfkoPnOYfdjb9hln30HfWlvgcCYuf0TAeQ2zOx0g')  # Replace with your actual Cohere API key
@@ -18,7 +16,7 @@ co = cohere.Client('MfkoPnOYfdjb9hln30HfWlvgcCYuf0TAeQ2zOx0g')  # Replace with y
 
 
 class PDFExtractor:
-    def __init__(self, input_pdf, output_txt, pages="1-N", mode="layout", grid=1, fontsize=3, noformfeed=False, skip_empty=False, convert_white=False, noligatures=False, extra_spaces=False):
+    def __init__(self, input_pdf, output_txt, pages="1-N", mode="layout", grid=1, fontsize=3, noformfeed=False, skip_empty=True, convert_white=False, noligatures=True, extra_spaces=False):
         self.input_pdf = input_pdf
         self.output_txt = output_txt
         self.pages = pages
@@ -172,13 +170,20 @@ class EmbeddingGenerator:
 
 
 def main(filepath):
-    # Extract and process text
-    extractor = PDFExtractor()
-    text = extractor.extract_text(filepath)
 
+
+    # Extract text from PDF
+    extractor = PDFExtractor(filepath, "output.txt")
+    text = extractor.extract_text()
+
+    # Clean the extracted text
+    cleaner = TextCleaner()
+    cleaned_text = cleaner.clean_text(text)
+
+    # Tokenize and chunk the cleaned text
     tokenizer = Tokenizer()
     print("Tokenizing and chunking text...")
-    chunks = tokenizer.create_chunks(text)
+    chunks = tokenizer.create_chunks(cleaned_text)
     text_chunks = [tokenizer.tokenizer.decode(chunk) for chunk in tqdm(chunks, desc="Processing", unit="chunk")]
 
     print("Formatting data as JSON...")
@@ -189,9 +194,9 @@ def main(filepath):
         json_file.write(json_data)
     print(f"Intermediate data saved to {intermediate_output_filename}")
 
+
     # Add embeddings to JSON
     co_client = cohere.Client('MfkoPnOYfdjb9hln30HfWlvgcCYuf0TAeQ2zOx0g')  # Use your actual Cohere API key
-    text_cleaner = TextCleaner()
     embedding_generator = EmbeddingGenerator(co_client)
     final_output_filename = os.path.splitext(os.path.basename(filepath))[0] + "_final_output.json"
     json_processor = JSONProcessor(intermediate_output_filename, final_output_filename, text_cleaner, embedding_generator)
