@@ -6,6 +6,7 @@ import json
 from tqdm import tqdm
 import re
 import cohere 
+from fitzcli import gettext, open_file, get_list, TEXT_PRESERVE_LIGATURES, TEXT_PRESERVE_WHITESPACE, TEXT_INHIBIT_SPACES
 
 
 # Constants
@@ -15,15 +16,54 @@ EMBEDDING_ENCODING = 'cl100k_base'
 co = cohere.Client('MfkoPnOYfdjb9hln30HfWlvgcCYuf0TAeQ2zOx0g')  # Replace with your actual Cohere API key
 
 
-class PDFExtractor:
-    @staticmethod
-    def extract_text(filepath):
-        try:
-            return textract.process(filepath, method='pdfminer').decode('utf-8')
-        except Exception as e:
-            print(f"Error extracting text from PDF: {e}")
-            sys.exit(1)
 
+class PDFExtractor:
+    def __init__(self, input_pdf, output_txt, pages="1-N", mode="layout", grid=1, fontsize=3, noformfeed=False, skip_empty=False, convert_white=False, noligatures=False, extra_spaces=False):
+        self.input_pdf = input_pdf
+        self.output_txt = output_txt
+        self.pages = pages
+        self.mode = mode
+        self.grid = grid
+        self.fontsize = fontsize
+        self.noformfeed = noformfeed
+        self.skip_empty = skip_empty
+        self.convert_white = convert_white
+        self.noligatures = noligatures
+        self.extra_spaces = extra_spaces
+
+    def extract_text(self):
+        doc = open_file(self.input_pdf, password=None, pdf=False)
+        pagel = get_list(self.pages, doc.page_count + 1)
+        output = self.output_txt
+        textout = open(output, "wb")
+        flags = TEXT_PRESERVE_LIGATURES | TEXT_PRESERVE_WHITESPACE
+        if self.convert_white:
+            flags ^= TEXT_PRESERVE_WHITESPACE
+        if self.noligatures:
+            flags ^= TEXT_PRESERVE_LIGATURES
+        if self.extra_spaces:
+            flags ^= TEXT_INHIBIT_SPACES
+        func = {
+            "simple": page_simple,
+            "blocks": page_blocksort,
+            "layout": page_layout,
+        }
+        for pno in pagel:
+            page = doc[pno - 1]
+            func[self.mode](
+                page,
+                textout,
+                self.grid,
+                self.fontsize,
+                self.noformfeed,
+                self.skip_empty,
+                flags=flags,
+            )
+        textout.close()
+
+# Usage
+extractor = PDFExtractor("input.pdf", "output.txt")
+extractor.extract_text()
 class TextCleaner:
     @staticmethod
     def clean_text(text):
