@@ -28,34 +28,37 @@ class PDFExtractor:
         self.noligatures = noligatures
         self.extra_spaces = extra_spaces
 
+
     def extract_text(self):
         doc = open_file(self.input_pdf, password=None, pdf=False)
         pagel = get_list(self.pages, doc.page_count + 1)
-        output = []
-        flags = TEXT_PRESERVE_LIGATURES | TEXT_PRESERVE_WHITESPACE
-        if self.convert_white:
-            flags ^= TEXT_PRESERVE_WHITESPACE
-        if self.noligatures:
-            flags ^= TEXT_PRESERVE_LIGATURES
-        if self.extra_spaces:
-            flags ^= TEXT_INHIBIT_SPACES
-        func = {
-            "simple": page_simple,
-            "blocks": page_blocksort,
-            "layout": page_layout,
-        }
-        for pno in pagel:
-            page = doc[pno - 1]
-            func[self.mode](
-                page,
-                output,
-                self.grid,
-                self.fontsize,
-                self.noformfeed,
-                self.skip_empty,
-                flags=flags,
-            )
-        return ' '.join(output)
+        output_filename = "output.txt"  # Choose an appropriate filename
+        with open(output_filename, "w") as output:
+            flags = TEXT_PRESERVE_LIGATURES | TEXT_PRESERVE_WHITESPACE
+            if self.convert_white:
+                flags ^= TEXT_PRESERVE_WHITESPACE
+            if self.noligatures:
+                flags ^= TEXT_PRESERVE_LIGATURES
+            if self.extra_spaces:
+                flags ^= TEXT_INHIBIT_SPACES
+            func = {
+                "simple": page_simple,
+                "blocks": page_blocksort,
+                "layout": page_layout,
+            }
+            for pno in pagel:
+                page = doc[pno - 1]
+                func[self.mode](
+                    page,
+                    output,
+                    self.grid,
+                    self.fontsize,
+                    self.noformfeed,
+                    self.skip_empty,
+                    flags=flags,
+                )
+        with open(output_filename, "r") as file:
+            return file.read()
 
 class TextCleaner:
     @staticmethod
