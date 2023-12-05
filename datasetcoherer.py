@@ -16,9 +16,8 @@ co = cohere.Client('MfkoPnOYfdjb9hln30HfWlvgcCYuf0TAeQ2zOx0g')  # Replace with y
 
 
 class PDFExtractor:
-    def __init__(self, input_pdf, output_txt, pages="1-N", mode="layout", grid=1, fontsize=3, noformfeed=False, skip_empty=True, convert_white=False, noligatures=True, extra_spaces=False):
+    def __init__(self, input_pdf, pages="1-N", mode="layout", grid=1, fontsize=3, noformfeed=False, skip_empty=False, convert_white=True, noligatures=False, extra_spaces=False):
         self.input_pdf = input_pdf
-        self.output_txt = output_txt
         self.pages = pages
         self.mode = mode
         self.grid = grid
@@ -32,8 +31,7 @@ class PDFExtractor:
     def extract_text(self):
         doc = open_file(self.input_pdf, password=None, pdf=False)
         pagel = get_list(self.pages, doc.page_count + 1)
-        output = self.output_txt
-        textout = open(output, "wb")
+        output = []
         flags = TEXT_PRESERVE_LIGATURES | TEXT_PRESERVE_WHITESPACE
         if self.convert_white:
             flags ^= TEXT_PRESERVE_WHITESPACE
@@ -50,18 +48,15 @@ class PDFExtractor:
             page = doc[pno - 1]
             func[self.mode](
                 page,
-                textout,
+                output,
                 self.grid,
                 self.fontsize,
                 self.noformfeed,
                 self.skip_empty,
                 flags=flags,
             )
-        textout.close()
+        return ' '.join(output)
 
-# Usage
-extractor = PDFExtractor("input.pdf", "output.txt")
-extractor.extract_text()
 class TextCleaner:
     @staticmethod
     def clean_text(text):
@@ -69,7 +64,6 @@ class TextCleaner:
         text = re.sub(' +', ' ', text)  # Replace multiple spaces with a single space
         text = re.sub(r'\s+([.,;:])', r'\1', text)  # Remove space before punctuation
         return text.strip()
-
 
 class Tokenizer:
     def __init__(self, encoding=EMBEDDING_ENCODING):
@@ -169,12 +163,13 @@ class EmbeddingGenerator:
             return [None] * len(texts)
 
 
+
 def main(filepath):
-
-
     # Extract text from PDF
-    extractor = PDFExtractor(filepath, "output.txt")
+    extractor = PDFExtractor(filepath)
     text = extractor.extract_text()
+
+ 
 
     # Clean the extracted text
     cleaner = TextCleaner()
